@@ -1,0 +1,128 @@
+name: Snowflake list tables (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      database:
+        description: "Snowflake database name"
+        type: string
+        default: "TAKUMA_NISHIZUKA_DB"
+      schema:
+        description: "Target schema (use % for all)"
+        type: string
+        default: "%"
+      warehouse:
+        description: "Warehouse name"
+        type: string
+        default: "TAKUMA_NISHIZUKA_WH"
+
+permissions:
+  contents: read
+
+env:
+  # --- Secrets (必ず GitHub Secrets に登録してください) ---
+  SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}   # 例: ar29333.ap-northeast-1.aws
+  SNOWFLAKE_USER:    ${{ secrets.SNOWFLAKE_USER }}      # 例: TAKUMA.NISHIZUKA@DATUMSTUDIO.JP
+  SNOWFLAKE_ROLE:    ${{ secrets.SNOWFLAKE_ROLE }}      # 例: SYSADMIN
+  # base64エンコードした秘密鍵(p8)を登録（下の「準備」参照）
+  SNOWFLAKE_PRIVATE_KEY_B64: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_B64 }}
+
+jobs:
+  list-tables:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install snowflake-connector-python cryptography pandas
+
+      - name: Restore private key (PEM)
+        shell: bash
+        run: |
+          # Secrets に登録した base64 文字列を復元して p8 を作成
+          echo "$SNOWFLAKE_PRIVATE_KEY_B64" | base64 -d > private_key.p8
+          # 権限を厳しく
+          chmod 600 private_key.p8
+
+      - name: List tables
+        id: list
+        shell: bash
+        env:
+          DB: ${{ inputs.database }}
+          SCHEMA: ${{ inputs.schema }}
+          WH: ${{ inputs.warehouse }}
+        run: |
+          python - <<'PY'
+          import os, sys, csv
+          import snowflake.connector
+          from cryptography.hazmat.primitives import serialization
+
+          account   = os.environ["SNOWFLAKE_ACCOUNT"]
+          user      = os.environ["SNOWFLAKE_USER"]
+          role      = os.environ.get("SNOWFLAKE_ROLE") or None
+          database  = os.environ["DB"]
+          schema    = os.environ["SCHEMA"]
+          warehouse = os.environ["WH"]
+
+          # Load private key
+          with open("private_key.p8","rb") as f:
+            private_key = serialization.load_pem_private_key(f.read(), password=None)
+
+          # Connect with key-pair auth
+          ctx = snowflake.connector.connect(
+              account=account,
+              user=user,
+              private_key=private_key,
+              role=role,
+              warehouse=warehouse,
+              database=database,
+          )
+          cs = ctx.cursor()
+          try:
+              # information_schema から一覧を取得（スキーマ指定はLIKEで柔軟に）
+              q = """
+              select table_schema, table_name, table_type
+              from information_schema.tables
+              where table_catalog = %s
+                and table_schema like %s
+              order by 1,2
+              """
+              cs.execute(q, (database, schema))
+              rows = cs.fetchall()
+              # コンソール出力
+              for r in rows:
+                  print(f"{r[0]}.{r[1]}  ({r[2]})")
+              # CSV保存（artifactで確認できるように）
+              with open("tables.csv","w", newline="") as f:
+                  w = csv.writer(f)
+                  w.writerow(["table_schema","table_name","table_type"])
+                  w.writerows(rows)
+              print(f"\nSaved: tables.csv ({len(rows)} rows)")
+          finally:
+              cs.close()
+              ctx.close()
+          PY
+
+      - name: Upload result (tables.csv)
+        uses: actions/upload-artifact@v4
+        with:
+          name: tables
+          path: tables.csv
+
+      # 将来：リポジトリ内のスクリプトを呼ぶ場合の例（run_snowflake_query.py等）
+      # - name: Run repository Python
+      #   env:
+      #     DB: ${{ inputs.database }}
+      #     SCHEMA: ${{ inputs.schema }}
+      #     WH: ${{ inputs.warehouse }}
+      #   run: |
+      #     python tools/run_snowflake_query.py
