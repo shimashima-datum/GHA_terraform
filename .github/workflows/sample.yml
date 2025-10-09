@@ -15,9 +15,11 @@ on:
         description: "Warehouse name"
         type: string
         default: "TAKUMA_NISHIZUKA_WH"
+   
   push:
     branches:
-      - main
+      - main      
+
 permissions:
   contents: read
 
@@ -94,6 +96,8 @@ jobs:
               q = """
               select table_schema, table_name, table_type
               from information_schema.tables
+              where table_catalog = %s
+                and table_schema like %s
               order by 1,2
               """
               cs.execute(q, (database, schema))
