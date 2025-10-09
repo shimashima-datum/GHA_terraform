@@ -2,7 +2,7 @@ name: Snowflake list tables (manual)
 
 on:
   workflow_dispatch:
-    inputs:
+    inputs: 
       database:
         description: "Snowflake database name"
         type: string
@@ -18,7 +18,7 @@ on:
    
   push:
     branches:
-      - main      
+      - main 
 
 permissions:
   contents: read
