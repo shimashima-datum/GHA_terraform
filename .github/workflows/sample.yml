@@ -15,7 +15,9 @@ on:
         description: "Warehouse name"
         type: string
         default: "TAKUMA_NISHIZUKA_WH"
-
+  push:
+    branches:
+      - main
 permissions:
   contents: read
 
