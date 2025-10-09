@@ -10,7 +10,7 @@ on:
       schema:
         description: "Target schema (use % for all)"
         type: string
-        default: "PUBLIC"
+        default: PUBLIC
       warehouse:
         description: "Warehouse name"
         type: string
