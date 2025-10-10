@@ -15,6 +15,9 @@ on:
         description: "Warehouse name"
         type: string
         default: "TAKUMA_NISHIZUKA_WH"
+  push:
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -26,6 +29,11 @@ env:
   SNOWFLAKE_ROLE:    ${{ secrets.SNOWFLAKE_ROLE }}      # 例: SYSADMIN（任意）
   # base64 エンコードした p8 秘密鍵
   SNOWFLAKE_PRIVATE_KEY_B64: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_B64 }}
+
+  # “入力相当” の環境変数（push の場合はデフォルトにフォールバック）
+  INPUT_DATABASE:  ${{ github.event.inputs.database  || 'TAKUMA_NISHIZUKA_DB' }}
+  INPUT_SCHEMA:    ${{ github.event.inputs.schema    || 'PUBLIC' }}
+  INPUT_WAREHOUSE: ${{ github.event.inputs.warehouse || 'TAKUMA_NISHIZUKA_WH' }}
 
 jobs:
   list-tables:
@@ -53,10 +61,10 @@ jobs:
 
       - name: Run tools/snowflake_list.py
         env:
-          # 入力値を env に渡す
-          SNOWFLAKE_DATABASE:  ${{ inputs.database }}
-          SNOWFLAKE_SCHEMA_LIKE: ${{ inputs.schema }}
-          SNOWFLAKE_WAREHOUSE: ${{ inputs.warehouse }}
+          # 入力値（push でも上の env のデフォルトが入る）
+          SNOWFLAKE_DATABASE:      ${{ env.INPUT_DATABASE }}
+          SNOWFLAKE_SCHEMA_LIKE:   ${{ env.INPUT_SCHEMA }}
+          SNOWFLAKE_WAREHOUSE:     ${{ env.INPUT_WAREHOUSE }}
           # 復元した鍵のパス
           SNOWFLAKE_PRIVATE_KEY_PATH: private_key.p8
         run: |
