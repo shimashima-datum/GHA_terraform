@@ -51,7 +51,7 @@ jobs:
           echo "$SNOWFLAKE_PRIVATE_KEY_B64" | base64 -d > private_key.p8
           chmod 600 private_key.p8
 
-      - name: Run tools/select.py
+      - name: Run tools/snowflake_list.py
         env:
           # 入力値を env に渡す
           SNOWFLAKE_DATABASE:  ${{ inputs.database }}
@@ -60,7 +60,7 @@ jobs:
           # 復元した鍵のパス
           SNOWFLAKE_PRIVATE_KEY_PATH: private_key.p8
         run: |
-          python tools/select.py
+          python tools/snowflake_list.py
 
       - name: Upload result (tables.csv)
         uses: actions/upload-artifact@v4
