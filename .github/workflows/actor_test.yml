@@ -1,0 +1,32 @@
+name: On merge feature branch to main
+
+on:
+  pull_request_target:
+    types: [closed]
+    branches:
+      - main   # マージ先が main のときだけ
+
+jobs:
+  run-on-merge:
+    if: >
+      github.event.pull_request.merged == true
+
+    runs-on: ubuntu-latest
+
+    steps:
+      # 👇 ここで actor を表示
+      - name: Show GitHub actor
+        run: |
+          echo "Workflow triggered by actor: ${{ github.actor }}"
+          echo "Merged by: ${{ github.event.pull_request.merged_by.login }}"
+          echo "PR author: ${{ github.event.pull_request.user.login }}"
+
+      - name: Checkout merged commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+
+      - name: Run sample
+        run: |
+          echo "Merged from feature branch!"
+          python test.py
