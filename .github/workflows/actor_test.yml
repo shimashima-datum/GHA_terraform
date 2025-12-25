@@ -29,4 +29,4 @@ jobs:
       - name: Run sample
         run: |
           echo "Merged from feature branch!"
-          python test.py
+          python python.py
